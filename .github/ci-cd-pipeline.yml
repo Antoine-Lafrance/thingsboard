@@ -1,0 +1,253 @@
+name: ThingsBoard CI/CD Pipeline
+
+on:
+  push:
+    branches: [master, main, develop]
+  pull_request:
+    branches: [master, main, develop]
+  workflow_dispatch:
+
+env:
+  JAVA_VERSION: "17"
+  MAVEN_OPTS: "-Xmx4g -XX:MaxPermSize=512m"
+
+jobs:
+  build:
+    name: Build Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build with Maven
+        run: mvn clean install -DskipTests
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: thingsboard-build
+          path: |
+            application/target/*.deb
+            application/target/*.jar
+          retention-days: 7
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: build
+
+    strategy:
+      matrix:
+        test-group: [unit, integration]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Run Unit Tests
+        if: matrix.test-group == 'unit'
+        run: mvn test -Dtest=*Test
+
+      - name: Run Integration Tests
+        if: matrix.test-group == 'integration'
+        run: mvn verify -Dtest=*IT
+
+      - name: Generate Test Report
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Test Results (${{ matrix.test-group }})
+          path: "**/target/surefire-reports/TEST-*.xml"
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.test-group }}
+          path: "**/target/surefire-reports/"
+          retention-days: 7
+
+  code-quality:
+    name: Code Quality Analysis
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for better analysis
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Run Maven Checkstyle
+        run: mvn checkstyle:check || true
+
+      - name: Run SpotBugs
+        run: mvn compile spotbugs:check || true
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    needs: [build, test, code-quality]
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: thingsboard-build
+          path: ./artifacts
+
+      - name: Get version from pom.xml
+        id: version
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Create Release Tag
+        id: create_tag
+        run: |
+          TAG_NAME="v${{ steps.version.outputs.version }}-build.${{ github.run_number }}"
+          echo "tag_name=$TAG_NAME" >> $GITHUB_OUTPUT
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git tag -a $TAG_NAME -m "Release $TAG_NAME"
+          git push origin $TAG_NAME || echo "Tag already exists"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.create_tag.outputs.tag_name }}
+          name: ThingsBoard Release ${{ steps.version.outputs.version }}
+          body: |
+            ## ThingsBoard Release ${{ steps.version.outputs.version }}
+
+            ### Changes
+            - Build from commit: ${{ github.sha }}
+            - Build number: ${{ github.run_number }}
+
+            ### Artifacts
+            This release includes the compiled ThingsBoard application packages.
+
+            ### Installation
+            See the [official documentation](https://thingsboard.io/docs/user-guide/install/installation-options/) for installation instructions.
+          files: |
+            ./artifacts/*.deb
+            ./artifacts/*.jar
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'SNAPSHOT') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  docker-build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3w
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/thingsboard:${{ steps.version.outputs.version }}
+            ${{ secrets.DOCKER_USERNAME }}/thingsboard:latest
+          cache-from: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/thingsboard:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKER_USERNAME }}/thingsboard:buildcache,mode=max
+
+  notification:
+    name: Send Notifications
+    runs-on: ubuntu-latest
+    needs: [release, docker-build]
+    if: always()
+
+    steps:
+      - name: Notify on Success
+        if: ${{ needs.release.result == 'success' }}
+        run: |
+          echo "✅ Pipeline completed successfully!"
+          echo "Release created and Docker image published."
+
+      - name: Notify on Failure
+        if: ${{ needs.release.result == 'failure' || needs.docker-build.result == 'failure' }}
+        run: |
+          echo "❌ Pipeline failed!"
+          echo "Please check the logs for details."
