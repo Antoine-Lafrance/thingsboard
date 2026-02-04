@@ -25,7 +25,7 @@ on:
 
 env:
   JAVA_VERSION: "17"
-  MAVEN_OPTS: "-Xmx4g -XX:MaxPermSize=512m"
+  MAVEN_OPTS: "-Xmx4g"
 
 jobs:
   build:
