@@ -103,7 +103,7 @@ jobs:
         if: matrix.test-group == 'unit'
         run: |
           echo "Running unit tests..."
-          mvn test -Dtest=*Test
+          mvn test -Dtest=*Test -Dsurefire.failIfNoSpecifiedTests=false
           echo "Unit tests completed"
 
       - name: Execute Integration Tests

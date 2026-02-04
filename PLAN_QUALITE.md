@@ -1,7 +1,9 @@
 # Plan de Qualité - ThingsBoard
+
 ## Nouvelle Fonctionnalité: Device Health Status
 
 ### Date: 3 Février 2026
+
 ### Auteur: Équipe Qualité ThingsBoard
 
 ---
@@ -13,6 +15,7 @@
 **ThingsBoard** est une plateforme IoT open-source qui offre les fonctionnalités suivantes:
 
 #### Gestion des Appareils et Assets
+
 - **Provisionnement** des devices et assets
 - **Monitoring** et contrôle via API sécurisées
 - **Relations** entre devices, assets, customers et autres entités
@@ -22,6 +25,7 @@
   - `dao/src/main/java/org/thingsboard/server/dao/device/`
 
 #### Télémétrie et Données
+
 - **Collecte** de données télémétriques des devices
 - **Stockage** de time-series data
 - **API** pour envoyer/récupérer les données
@@ -31,6 +35,7 @@
   - `common/transport/http/src/main/java/org/thingsboard/server/transport/http/DeviceApiController.java`
 
 #### Gestion de l'État des Devices
+
 - **Tracking** de connectivité (connect/disconnect)
 - **Monitoring** d'activité/inactivité
 - **Time-out** d'inactivité configurable
@@ -39,11 +44,13 @@
   - `application/src/main/java/org/thingsboard/server/service/state/DeviceStateService.java`
 
 #### Visualisation et Dashboards
+
 - **Création** de dashboards en temps réel
 - **Widgets** personnalisables
 - **Partage** avec les customers
 
 #### Règles et Alarmes
+
 - **Rule Engine** pour traitement de données
 - **Alarmes** basées sur des seuils
 - **Notifications** (email, SMS, etc.)
@@ -55,6 +62,7 @@
 ### 2.1 Description
 
 **Device Health Status** est une nouvelle fonctionnalité simple qui permet de:
+
 - Suivre l'état de santé global d'un device
 - Calculer un score de santé basé sur:
   - État de connectivité (ONLINE/OFFLINE/UNKNOWN)
@@ -65,6 +73,7 @@
 ### 2.2 Justification
 
 Cette fonctionnalité améliore:
+
 - **Monitoring proactif** des devices
 - **Détection précoce** des problèmes
 - **Priorisation** des interventions de maintenance
@@ -73,11 +82,13 @@ Cette fonctionnalité améliore:
 ### 2.3 Implémentation
 
 **Nouveau fichier créé:**
+
 ```
 common/data/src/main/java/org/thingsboard/server/common/data/DeviceHealthStatus.java
 ```
 
 **Caractéristiques:**
+
 - Classe simple avec lombok annotations (@Data, @Builder)
 - Calcul automatique du score de santé (0-100)
 - Méthodes utilitaires pour vérifier l'état
@@ -85,6 +96,7 @@ common/data/src/main/java/org/thingsboard/server/common/data/DeviceHealthStatus.
 - Facilement testable
 
 **Structure:**
+
 ```java
 public class DeviceHealthStatus {
     - DeviceId deviceId
@@ -92,7 +104,7 @@ public class DeviceHealthStatus {
     - Integer batteryLevel
     - long lastActivityTime
     - int healthScore
-    
+
     + calculateHealthScore(): int
     + isCritical(): boolean
     + isHealthy(): boolean
@@ -107,6 +119,7 @@ public class DeviceHealthStatus {
 ### 3.1 Stratégie de Test
 
 #### Tests Unitaires (Obligatoires)
+
 - **Coverage minimum:** 90% du code de la nouvelle fonctionnalité
 - **Framework:** JUnit 5
 - **Nombre de tests:** 11 tests unitaires créés
@@ -116,24 +129,26 @@ public class DeviceHealthStatus {
   ```
 
 #### Tests d'Intégration (Recommandés)
+
 - Intégration avec DeviceStateService
 - Test de persistance des données de santé
 - Test de performance avec grand nombre de devices
 
 #### Tests de Charge (Optionnels pour cette feature)
+
 - Calcul de health score pour 10,000+ devices
 - Impact sur la performance globale
 
 ### 3.2 Critères de Qualité
 
-| Critère | Objectif | Mesure |
-|---------|----------|---------|
-| **Couverture de code** | ≥ 90% | JaCoCo |
-| **Tests unitaires** | Tous passent | Maven Surefire |
-| **Temps d'exécution** | < 5ms par calcul | Profiling |
-| **Pas de régression** | 0 test cassé | CI/CD Pipeline |
-| **Code quality** | 0 bug critique | SonarQube/SpotBugs |
-| **License headers** | 100% | License Maven Plugin |
+| Critère                | Objectif         | Mesure               |
+| ---------------------- | ---------------- | -------------------- |
+| **Couverture de code** | ≥ 90%            | JaCoCo               |
+| **Tests unitaires**    | Tous passent     | Maven Surefire       |
+| **Temps d'exécution**  | < 5ms par calcul | Profiling            |
+| **Pas de régression**  | 0 test cassé     | CI/CD Pipeline       |
+| **Code quality**       | 0 bug critique   | SonarQube/SpotBugs   |
+| **License headers**    | 100%             | License Maven Plugin |
 
 ---
 
@@ -204,21 +219,25 @@ mvn test jacoco:report
 Le pipeline CI/CD (`github/workflows/ci-cd-pipeline.yml`) comprend:
 
 #### Job: Build
+
 - Compilation avec Maven
 - Skip des tests pour build rapide
 - Upload des artifacts (.jar, .deb)
 
 #### Job: Test
+
 - Matrix strategy: [unit, integration]
 - Exécution parallèle
 - Génération de rapports
 - Service Docker pour Testcontainers
 
 #### Job: Code Quality
+
 - Maven Checkstyle
 - SpotBugs analysis
 
 #### Job: Release & Docker
+
 - Création de releases GitHub
 - Build et push d'images Docker
 
@@ -244,11 +263,13 @@ Le pipeline CI/CD (`github/workflows/ci-cd-pipeline.yml`) comprend:
 ### 5.3 Intégration de la Nouvelle Fonctionnalité
 
 **Aucune modification nécessaire** car:
+
 - Tests unitaires détectés automatiquement (pattern `*Test.java`)
 - Aucune dépendance externe requise
 - Compatible avec le build Maven existant
 
 **Validation automatique:**
+
 ```yaml
 - name: Execute Unit Tests
   run: |
@@ -292,14 +313,14 @@ Le pipeline CI/CD (`github/workflows/ci-cd-pipeline.yml`) comprend:
 
 ### 6.2 Métriques de Qualité
 
-| Métrique | Cible | Actuel | Status |
-|----------|-------|--------|--------|
-| Couverture tests | ≥90% | ~100% | ✅ |
-| Tests unitaires | Tous passent | 11/11 | ✅ |
-| Complexité cyclomatique | ≤10 | 3-5 | ✅ |
-| Duplications | 0% | 0% | ✅ |
-| Bugs critiques | 0 | 0 | ✅ |
-| Code smells | 0 | 0 | ✅ |
+| Métrique                | Cible        | Actuel | Status |
+| ----------------------- | ------------ | ------ | ------ |
+| Couverture tests        | ≥90%         | ~100%  | ✅     |
+| Tests unitaires         | Tous passent | 11/11  | ✅     |
+| Complexité cyclomatique | ≤10          | 3-5    | ✅     |
+| Duplications            | 0%           | 0%     | ✅     |
+| Bugs critiques          | 0            | 0      | ✅     |
+| Code smells             | 0            | 0      | ✅     |
 
 ### 6.3 Critères d'Acceptation
 
@@ -315,18 +336,21 @@ Le pipeline CI/CD (`github/workflows/ci-cd-pipeline.yml`) comprend:
 ## 7. PROCHAINES ÉTAPES
 
 ### 7.1 Court Terme (Sprint Actuel)
+
 1. Exécuter les tests localement pour valider
 2. Commit et push du code
 3. Vérifier que le CI/CD passe au vert
 4. Effectuer code review
 
 ### 7.2 Moyen Terme
+
 1. Créer REST API pour exposer Device Health Status
 2. Ajouter tests d'intégration
 3. Intégrer avec dashboard UI
 4. Créer widget de visualisation
 
 ### 7.3 Long Terme
+
 1. Historique des health scores (time-series)
 2. Prédiction proactive des pannes
 3. Alertes automatiques sur dégradation
@@ -336,12 +360,12 @@ Le pipeline CI/CD (`github/workflows/ci-cd-pipeline.yml`) comprend:
 
 ## 8. RISQUES ET MITIGATION
 
-| Risque | Impact | Probabilité | Mitigation |
-|--------|--------|-------------|------------|
-| Régression sur code existant | Élevé | Faible | Tests complets dans CI/CD |
-| Performance dégradée | Moyen | Faible | Calcul simple, peu coûteux |
-| Adoption faible | Faible | Moyen | Documentation et exemples |
-| Bugs en production | Élevé | Faible | Coverage 100%, edge cases testés |
+| Risque                       | Impact | Probabilité | Mitigation                       |
+| ---------------------------- | ------ | ----------- | -------------------------------- |
+| Régression sur code existant | Élevé  | Faible      | Tests complets dans CI/CD        |
+| Performance dégradée         | Moyen  | Faible      | Calcul simple, peu coûteux       |
+| Adoption faible              | Faible | Moyen       | Documentation et exemples        |
+| Bugs en production           | Élevé  | Faible      | Coverage 100%, edge cases testés |
 
 ---
 
@@ -350,6 +374,7 @@ Le pipeline CI/CD (`github/workflows/ci-cd-pipeline.yml`) comprend:
 La nouvelle fonctionnalité **Device Health Status** a été implémentée avec succès en suivant les meilleures pratiques de qualité logicielle:
 
 ### Points Forts
+
 ✅ **Simplicité** - Fonctionnalité claire et bien définie
 ✅ **Testabilité** - 11 tests unitaires avec 100% coverage
 ✅ **Maintenabilité** - Code propre, bien documenté
@@ -357,6 +382,7 @@ La nouvelle fonctionnalité **Device Health Status** a été implémentée avec 
 ✅ **Automatisation** - Validation automatique via CI/CD
 
 ### Qualité Garantie Par
+
 - Tests unitaires complets (11 tests)
 - Pipeline CI/CD automatisé
 - Validation continue à chaque commit
@@ -368,6 +394,7 @@ La fonctionnalité est **prête pour intégration** dans la branche principale a
 ---
 
 **Annexes:**
+
 - Fichier implémentation: `common/data/src/main/java/org/thingsboard/server/common/data/DeviceHealthStatus.java`
 - Fichier tests: `common/data/src/test/java/org/thingsboard/server/common/data/DeviceHealthStatusTest.java`
 - Pipeline CI/CD: `.github/workflows/ci-cd-pipeline.yml`
