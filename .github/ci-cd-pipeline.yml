@@ -51,8 +51,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Build with Maven
-        run: mvn clean install -DskipTests
+      - name: Compile and Build
+        run: |
+          echo "Building ThingsBoard application..."
+          mvn clean install -DskipTests
+          echo "Build completed successfully"
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
@@ -96,13 +99,19 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-maven-
 
-      - name: Run Unit Tests
+      - name: Execute Unit Tests
         if: matrix.test-group == 'unit'
-        run: mvn test -Dtest=*Test
+        run: |
+          echo "Running unit tests..."
+          mvn test -Dtest=*Test
+          echo "Unit tests completed"
 
-      - name: Run Integration Tests
+      - name: Execute Integration Tests
         if: matrix.test-group == 'integration'
-        run: mvn verify -Dtest=*IT
+        run: |
+          echo "Running integration tests..."
+          mvn verify -Dtest=*IT
+          echo "Integration tests completed"
 
       - name: Generate Test Report
         if: always()
