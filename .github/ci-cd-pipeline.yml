@@ -52,6 +52,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
 
+    services:
+      docker:
+        image: docker:dind
+        options: --privileged
+
     strategy:
       matrix:
         test-group: [unit, integration]
