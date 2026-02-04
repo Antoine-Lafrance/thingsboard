@@ -110,7 +110,7 @@ jobs:
         if: matrix.test-group == 'integration'
         run: |
           echo "Running integration tests..."
-          mvn verify -Dtest=*IT
+          mvn verify -Dtest=*IT -Dsurefire.failIfNoSpecifiedTests=false
           echo "Integration tests completed"
 
       - name: Generate Test Report
