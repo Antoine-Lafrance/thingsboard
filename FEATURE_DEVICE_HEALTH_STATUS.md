@@ -7,6 +7,7 @@
 ### Problème Résolu
 
 Actuellement, ThingsBoard peut suivre:
+
 - Si un device est connecté ou déconnecté
 - Les données de télémétrie individuelles
 - L'activité récente
@@ -35,13 +36,15 @@ Cette fonctionnalité fournit un **score de santé unique (0-100)** qui combine 
 Le score est calculé en combinant deux facteurs principaux:
 
 #### 1. État de Connectivité (60% du score)
-| État | Points | Description |
-|------|--------|-------------|
-| **ONLINE** | 60 pts | Device connecté et actif |
-| **OFFLINE** | 0 pts | Device déconnecté |
-| **UNKNOWN** | 30 pts | État indéterminé |
+
+| État        | Points | Description              |
+| ----------- | ------ | ------------------------ |
+| **ONLINE**  | 60 pts | Device connecté et actif |
+| **OFFLINE** | 0 pts  | Device déconnecté        |
+| **UNKNOWN** | 30 pts | État indéterminé         |
 
 #### 2. Niveau de Batterie (40% du score)
+
 - Batterie à 100% = 40 points
 - Batterie à 50% = 20 points
 - Batterie à 0% = 0 points
@@ -72,11 +75,11 @@ Device 3:
 
 Le système classifie automatiquement les devices:
 
-| Score | Catégorie | Indicateur | Action Requise |
-|-------|-----------|------------|----------------|
-| **70-100** | 🟢 Sain (Healthy) | Tout va bien | Aucune |
-| **30-69** | 🟡 Attention | Surveillance accrue | Planifier maintenance |
-| **0-29** | 🔴 Critique | Intervention urgente | Action immédiate |
+| Score      | Catégorie         | Indicateur           | Action Requise        |
+| ---------- | ----------------- | -------------------- | --------------------- |
+| **70-100** | 🟢 Sain (Healthy) | Tout va bien         | Aucune                |
+| **30-69**  | 🟡 Attention      | Surveillance accrue  | Planifier maintenance |
+| **0-29**   | 🔴 Critique       | Intervention urgente | Action immédiate      |
 
 ---
 
@@ -126,11 +129,11 @@ if (healthStatus.isInactive(5 * 60 * 1000)) {
 
 ### Méthodes Disponibles
 
-| Méthode | Retour | Description |
-|---------|--------|-------------|
-| `calculateHealthScore()` | `int` | Calcule et retourne le score 0-100 |
-| `isCritical()` | `boolean` | Vrai si score < 30 |
-| `isHealthy()` | `boolean` | Vrai si score ≥ 70 |
+| Méthode                        | Retour    | Description                                |
+| ------------------------------ | --------- | ------------------------------------------ |
+| `calculateHealthScore()`       | `int`     | Calcule et retourne le score 0-100         |
+| `isCritical()`                 | `boolean` | Vrai si score < 30                         |
+| `isHealthy()`                  | `boolean` | Vrai si score ≥ 70                         |
 | `isInactive(long thresholdMs)` | `boolean` | Vrai si inactif depuis plus de thresholdMs |
 
 ---
@@ -171,21 +174,25 @@ mvn test -Dtest=DeviceHealthStatusTest -pl common/data
 ## 📈 Intégrations Futures
 
 ### Phase 1 (Actuel) ✅
+
 - Classe de base DeviceHealthStatus
 - Calcul de score
 - Tests unitaires complets
 
 ### Phase 2 (À venir)
+
 - REST API pour exposer le health status
 - Intégration avec DeviceStateService
 - Persistance en base de données
 
 ### Phase 3 (À venir)
+
 - Widget de dashboard pour visualiser la santé
 - Graphiques d'évolution du score dans le temps
 - Alertes automatiques sur dégradation
 
 ### Phase 4 (À venir)
+
 - Historique des scores (time-series)
 - Prédiction de pannes avec ML
 - Recommandations de maintenance
@@ -195,6 +202,7 @@ mvn test -Dtest=DeviceHealthStatusTest -pl common/data
 ## 🔍 Cas d'Usage
 
 ### 1. Monitoring de Flotte IoT
+
 ```
 Scénario: Gestionnaire d'une flotte de 1000 capteurs
 - Vue rapide: 850 devices verts, 120 jaunes, 30 rouges
@@ -203,6 +211,7 @@ Scénario: Gestionnaire d'une flotte de 1000 capteurs
 ```
 
 ### 2. Devices sur Batterie
+
 ```
 Scénario: Capteurs environnementaux autonomes
 - Détection batterie faible avant déconnexion totale
@@ -211,6 +220,7 @@ Scénario: Capteurs environnementaux autonomes
 ```
 
 ### 3. Alertes Proactives
+
 ```
 Scénario: Installation critique (hôpital, industrie)
 - Alerte immédiate si score passe sous 30
@@ -219,6 +229,7 @@ Scénario: Installation critique (hôpital, industrie)
 ```
 
 ### 4. Dashboard Exécutif
+
 ```
 Scénario: Vue d'ensemble pour management
 - Indicateur simple: 95% de devices en santé
@@ -231,6 +242,7 @@ Scénario: Vue d'ensemble pour management
 ## 🎨 Exemples de Visualisation (À Implémenter)
 
 ### Widget Dashboard - Jauge de Santé
+
 ```
 ┌─────────────────────────┐
 │   Device ABC-123        │
@@ -247,6 +259,7 @@ Scénario: Vue d'ensemble pour management
 ```
 
 ### Liste de Devices avec Scores
+
 ```
 ╔═══════════════════════════════════════════════╗
 ║ Device Name     │ Score │ Status   │ Action  ║
@@ -271,7 +284,7 @@ public class DeviceHealthStatus {
     private Integer batteryLevel;            // 0-100 ou null
     private long lastActivityTime;           // Timestamp en ms
     private int healthScore;                 // Score calculé 0-100
-    
+
     // Méthodes publiques
     public int calculateHealthScore()        // Calcule le score
     public boolean isCritical()              // Teste si critique
@@ -295,16 +308,19 @@ public enum ConnectivityStatus {
 ## ✅ Avantages de cette Fonctionnalité
 
 ### Pour les Opérateurs
+
 - **Vue rapide** de l'état du parc
 - **Priorisation** des interventions
 - **Réduction** du temps de diagnostic
 
 ### Pour le Business
+
 - **Amélioration** de la qualité de service
 - **Réduction** des pannes imprévues
 - **Optimisation** des coûts de maintenance
 
 ### Pour les Développeurs
+
 - **API simple** et intuitive
 - **Facilement extensible**
 - **Bien testé** et documenté
@@ -321,19 +337,19 @@ Pour enrichir le calcul du score, vous pouvez:
 // Exemple: ajouter la qualité du signal
 public class DeviceHealthStatus {
     private Integer signalQuality; // 0-100
-    
+
     public int calculateHealthScore() {
         int score = 0;
-        
+
         // Connectivité: 40%
         score += calculateConnectivityScore() * 0.4;
-        
+
         // Batterie: 30%
         score += calculateBatteryScore() * 0.3;
-        
+
         // Signal: 30%
         score += calculateSignalScore() * 0.3;
-        
+
         return (int) score;
     }
 }
@@ -342,6 +358,7 @@ public class DeviceHealthStatus {
 ### Créer des Widgets
 
 Les développeurs front-end peuvent créer:
+
 - Cartes de santé individuelles
 - Graphiques d'évolution
 - Heatmaps de flotte
@@ -352,10 +369,12 @@ Les développeurs front-end peuvent créer:
 ## 📞 Support
 
 ### Questions Techniques
+
 - Voir le code source: `common/data/src/main/java/org/thingsboard/server/common/data/DeviceHealthStatus.java`
 - Tests unitaires: `common/data/src/test/java/org/thingsboard/server/common/data/DeviceHealthStatusTest.java`
 
 ### Plan de Qualité
+
 - Voir: `PLAN_QUALITE.md`
 
 ---
@@ -363,6 +382,7 @@ Les développeurs front-end peuvent créer:
 ## 📝 Changelog
 
 ### Version 1.0 (Février 2026)
+
 - ✅ Classe DeviceHealthStatus créée
 - ✅ Calcul de score basé sur connectivité + batterie
 - ✅ Méthodes isCritical(), isHealthy(), isInactive()
@@ -370,6 +390,7 @@ Les développeurs front-end peuvent créer:
 - ✅ Documentation complète
 
 ### À Venir
+
 - [ ] REST API endpoints
 - [ ] Intégration DeviceStateService
 - [ ] Widget dashboard UI
