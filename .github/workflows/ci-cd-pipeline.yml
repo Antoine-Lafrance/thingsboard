@@ -93,7 +93,7 @@ jobs:
       - name: Execute Unit Tests
         run: |
           echo "Running unit tests (excluding TbDateTest)..."
-          mvn test -Dtest=DeviceHealthStatusTest -pl common/data
+          mvn tes
           echo "Unit tests completed"
 
       - name: Generate Test Report
