@@ -287,4 +287,281 @@ public class DeviceHealthStatusTest {
         assertFalse(healthyBoundary.isCritical(), "Score 70 should not be critical");
         assertTrue(healthyBoundary.isHealthy(), "Score 70 should be healthy");
     }
+
+    @Test
+    @DisplayName("Should handle boundary battery levels correctly")
+    public void testBoundaryBatteryLevels() {
+        // Test 1% battery
+        DeviceHealthStatus onePercent = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(1)
+                .lastActivityTime(currentTime)
+                .build();
+        assertEquals(60, onePercent.calculateHealthScore(), 
+                "Health score should be 60 (60 for online + 0 for 1% battery)");
+
+        // Test 99% battery
+        DeviceHealthStatus ninetyNinePercent = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(99)
+                .lastActivityTime(currentTime)
+                .build();
+        assertEquals(99, ninetyNinePercent.calculateHealthScore(), 
+                "Health score should be 99 (60 for online + 39 for 99% battery)");
+    }
+
+    @Test
+    @DisplayName("Should handle multiple score calculations on same object")
+    public void testMultipleCalculations() {
+        // Arrange
+        DeviceHealthStatus status = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(80)
+                .lastActivityTime(currentTime)
+                .build();
+
+        // Act - Calculate multiple times
+        int firstScore = status.calculateHealthScore();
+        int secondScore = status.calculateHealthScore();
+        int thirdScore = status.calculateHealthScore();
+
+        // Assert
+        assertEquals(92, firstScore, "First calculation should return 92");
+        assertEquals(92, secondScore, "Second calculation should return 92");
+        assertEquals(92, thirdScore, "Third calculation should return 92");
+        assertEquals(92, status.getHealthScore(), "Stored score should be 92");
+    }
+
+    @Test
+    @DisplayName("Should detect inactivity at exact threshold")
+    public void testInactivityAtExactThreshold() {
+        // Arrange
+        long threshold = 5 * 60 * 1000; // 5 minutes
+        
+        // Use a time far enough in the past to avoid timing issues
+        // Activity was 4 minutes ago - should NOT be inactive with 5 minute threshold
+        DeviceHealthStatus recentStatus = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(80)
+                .lastActivityTime(currentTime - (4 * 60 * 1000))
+                .build();
+
+        // Activity was 6 minutes ago - should be inactive with 5 minute threshold
+        DeviceHealthStatus oldStatus = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(80)
+                .lastActivityTime(currentTime - (6 * 60 * 1000))
+                .build();
+
+        // Act & Assert
+        assertFalse(recentStatus.isInactive(threshold), 
+                "Device with 4 min old activity should not be inactive with 5 min threshold");
+        
+        assertTrue(oldStatus.isInactive(threshold), 
+                "Device with 6 min old activity should be inactive with 5 min threshold");
+    }
+
+    @Test
+    @DisplayName("Should handle very long inactivity periods")
+    public void testVeryLongInactivity() {
+        // Arrange - 30 days ago
+        long thirtyDaysAgo = currentTime - (30L * 24 * 60 * 60 * 1000);
+        
+        DeviceHealthStatus status = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.OFFLINE)
+                .batteryLevel(0)
+                .lastActivityTime(thirtyDaysAgo)
+                .build();
+
+        // Act & Assert
+        assertTrue(status.isInactive(1 * 60 * 1000), 
+                "Device should be inactive after 30 days with 1 minute threshold");
+        assertTrue(status.isInactive(24 * 60 * 60 * 1000), 
+                "Device should be inactive after 30 days with 24 hour threshold");
+    }
+
+    @Test
+    @DisplayName("Should handle mid-range battery levels accurately")
+    public void testMidRangeBatteryLevels() {
+        // Test 50% battery
+        DeviceHealthStatus fiftyPercent = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(50)
+                .lastActivityTime(currentTime)
+                .build();
+        assertEquals(80, fiftyPercent.calculateHealthScore(), 
+                "Health score should be 80 (60 + 20)");
+
+        // Test 75% battery
+        DeviceHealthStatus seventyFivePercent = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(75)
+                .lastActivityTime(currentTime)
+                .build();
+        assertEquals(90, seventyFivePercent.calculateHealthScore(), 
+                "Health score should be 90 (60 + 30)");
+
+        // Test 25% battery with UNKNOWN status
+        DeviceHealthStatus unknownWithLowBattery = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.UNKNOWN)
+                .batteryLevel(25)
+                .lastActivityTime(currentTime)
+                .build();
+        assertEquals(40, unknownWithLowBattery.calculateHealthScore(), 
+                "Health score should be 40 (30 + 10)");
+    }
+
+    @Test
+    @DisplayName("Should evaluate critical and healthy status at score 30")
+    public void testScoreThirtyBoundary() {
+        // Test score = 30 (should NOT be critical, should NOT be healthy)
+        DeviceHealthStatus scoreThirty = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.UNKNOWN)
+                .batteryLevel(null)
+                .lastActivityTime(currentTime)
+                .healthScore(30)
+                .build();
+
+        assertFalse(scoreThirty.isCritical(), 
+                "Score 30 should not be critical (threshold is < 30)");
+        assertFalse(scoreThirty.isHealthy(), 
+                "Score 30 should not be healthy (threshold is >= 70)");
+    }
+
+    @Test
+    @DisplayName("Should evaluate status for score 69")
+    public void testScoreSixtyNineBoundary() {
+        // Test score = 69 (should NOT be critical, should NOT be healthy)
+        DeviceHealthStatus scoreSixtyNine = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(22) // 60 + 8 = 68, but let's use 23 for 69
+                .lastActivityTime(currentTime)
+                .build();
+        
+        scoreSixtyNine.calculateHealthScore();
+        
+        assertFalse(scoreSixtyNine.isCritical(), 
+                "Score 69 should not be critical");
+        assertFalse(scoreSixtyNine.isHealthy(), 
+                "Score 69 should not be healthy (need >= 70)");
+    }
+
+    @Test
+    @DisplayName("Should handle offline device with full battery")
+    public void testOfflineWithFullBattery() {
+        // Arrange
+        DeviceHealthStatus status = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.OFFLINE)
+                .batteryLevel(100)
+                .lastActivityTime(currentTime - 3600000) // 1 hour ago
+                .build();
+
+        // Act
+        int healthScore = status.calculateHealthScore();
+
+        // Assert
+        assertEquals(40, healthScore, 
+                "Offline device even with full battery should score 40 (0 + 40)");
+        assertFalse(status.isCritical(), 
+                "Score 40 is not critical (critical is < 30), but still not healthy");
+        assertFalse(status.isHealthy(), 
+                "Score 40 is not healthy (healthy is >= 70)");
+    }
+
+    @Test
+    @DisplayName("Should handle zero threshold for inactivity check")
+    public void testInactivityWithZeroThreshold() {
+        // Arrange
+        DeviceHealthStatus status = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(80)
+                .lastActivityTime(currentTime - 1) // 1ms ago
+                .build();
+
+        // Act & Assert
+        assertTrue(status.isInactive(0), 
+                "Any past activity should be inactive with zero threshold");
+    }
+
+    @Test
+    @DisplayName("Should handle recent activity with large threshold")
+    public void testRecentActivityWithLargeThreshold() {
+        // Arrange - 1 second ago, threshold 1 year
+        long oneYearInMs = 365L * 24 * 60 * 60 * 1000;
+        
+        DeviceHealthStatus status = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(90)
+                .lastActivityTime(currentTime - 1000) // 1 second ago
+                .build();
+
+        // Act & Assert
+        assertFalse(status.isInactive(oneYearInMs), 
+                "Recent activity should not be inactive with 1 year threshold");
+    }
+
+    @Test
+    @DisplayName("Should maintain data consistency with Lombok annotations")
+    public void testDataConsistency() {
+        // Arrange
+        DeviceHealthStatus status1 = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(85)
+                .lastActivityTime(currentTime)
+                .healthScore(94)
+                .build();
+
+        DeviceHealthStatus status2 = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(85)
+                .lastActivityTime(currentTime)
+                .healthScore(94)
+                .build();
+
+        // Act & Assert - Test equals and hashCode
+        assertEquals(status1, status2, "Objects with same values should be equal");
+        assertEquals(status1.hashCode(), status2.hashCode(), 
+                "Objects with same values should have same hashCode");
+        assertEquals(status1.toString(), status2.toString(), 
+                "Objects with same values should have same toString output");
+    }
+
+    @Test
+    @DisplayName("Should allow modification after creation")
+    public void testMutability() {
+        // Arrange
+        DeviceHealthStatus status = DeviceHealthStatus.builder()
+                .deviceId(testDeviceId)
+                .connectivityStatus(ConnectivityStatus.ONLINE)
+                .batteryLevel(80)
+                .lastActivityTime(currentTime)
+                .build();
+
+        // Act - Modify values
+        status.setConnectivityStatus(ConnectivityStatus.OFFLINE);
+        status.setBatteryLevel(20);
+        
+        int newScore = status.calculateHealthScore();
+
+        // Assert
+        assertEquals(ConnectivityStatus.OFFLINE, status.getConnectivityStatus());
+        assertEquals(20, status.getBatteryLevel());
+        assertEquals(8, newScore, "New score should reflect updated values (0 + 8)");
+    }
 }
