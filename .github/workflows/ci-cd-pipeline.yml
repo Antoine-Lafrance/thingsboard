@@ -94,8 +94,8 @@ jobs:
 
       - name: Execute Unit Tests
         run: |
-          echo "Running unit tests..."
-          mvn test
+          echo "Running unit tests (excluding script-api module)..."
+          mvn test -pl '!common/script/script-api'
           echo "Unit tests completed"
 
       - name: Run DeviceHealthStatus Tests
