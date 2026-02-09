@@ -192,10 +192,98 @@ jobs:
       - name: Run SpotBugs
         run: mvn compile spotbugs:check || true
 
+  load-tests:
+    name: Performance Load Tests
+    runs-on: ubuntu-latest
+    needs: code-quality
+    if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: "temurin"
+          cache: "maven"
+
+      - name: Cache Maven dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+
+      - name: Build load tests module
+        run: mvn clean install -DskipTests -pl msa/load-tests -am
+
+      - name: Start ThingsBoard test environment
+        working-directory: msa/load-tests
+        run: |
+          echo "Starting Docker Compose stack for load testing..."
+          docker compose -f docker-compose.loadtest.yml up -d
+          echo "Waiting for ThingsBoard to be ready..."
+
+      - name: Wait for ThingsBoard health check
+        run: |
+          timeout=180
+          elapsed=0
+          interval=10
+
+          while [ $elapsed -lt $timeout ]; do
+            if curl -f http://localhost:8080/api/noauth/health 2>/dev/null; then
+              echo "✅ ThingsBoard is healthy and ready!"
+              exit 0
+            fi
+            echo "Waiting for ThingsBoard... ($elapsed/$timeout seconds)"
+            sleep $interval
+            elapsed=$((elapsed + interval))
+          done
+
+          echo "❌ ThingsBoard failed to become healthy in time"
+          docker compose -f msa/load-tests/docker-compose.loadtest.yml logs tb-core
+          exit 1
+
+      - name: Run Gatling load tests
+        working-directory: msa/load-tests
+        continue-on-error: true
+        run: |
+          echo "Running Gatling load tests..."
+          mvn gatling:test -DloadTests.skip=false
+          echo "Load tests completed"
+
+      - name: Generate test summary
+        if: always()
+        working-directory: msa/load-tests
+        run: |
+          if [ -f src/test/resources/gatling-results-to-markdown.sh ]; then
+            chmod +x src/test/resources/gatling-results-to-markdown.sh
+            ./src/test/resources/gatling-results-to-markdown.sh >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Gatling reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gatling-load-test-reports
+          path: msa/load-tests/target/gatling/
+          retention-days: 30
+
+      - name: Stop ThingsBoard test environment
+        if: always()
+        working-directory: msa/load-tests
+        run: |
+          echo "Stopping Docker Compose stack..."
+          docker compose -f docker-compose.loadtest.yml logs tb-core
+          docker compose -f docker-compose.loadtest.yml down -v
+
   release:
     name: Create Release
     runs-on: ubuntu-latest
-    needs: [build, unit-tests, device-health-tests, code-quality]
+    needs: [build, unit-tests, device-health-tests, code-quality, load-tests]
     if: github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main'
 
     steps:
@@ -269,6 +357,7 @@ jobs:
         run: |
           echo "✅ Pipeline completed successfully!"
           echo "Release created successfully."
+          echo "Load tests completed - check artifacts for performance reports."
 
       - name: Notify on Failure
         if: ${{ needs.release.result == 'failure' }}

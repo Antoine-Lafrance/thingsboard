@@ -66,6 +66,18 @@
             </modules>
         </profile>
         <profile>
+            <id>load-tests</id>
+            <activation>
+                <property>
+                    <name>loadTests.skip</name>
+                    <value>false</value>
+                </property>
+            </activation>
+            <modules>
+                <module>load-tests</module>
+            </modules>
+        </profile>
+        <profile>
             <id>push-docker-amd-arm-images</id>
             <activation>
                 <property>

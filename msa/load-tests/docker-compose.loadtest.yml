@@ -1,0 +1,119 @@
+#
+# Copyright © 2016-2026 The Thingsboard Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Simplified Docker Compose for Load Testing
+# This configuration is optimized for performance testing in CI/CD environments
+
+services:
+  postgres:
+    image: "postgres:16-alpine"
+    container_name: tb-loadtest-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: thingsboard
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - tb-loadtest-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tb-loadtest-network
+
+  valkey:
+    image: "valkey/valkey:8.0-alpine"
+    container_name: tb-loadtest-valkey
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - tb-loadtest-network
+
+  tb-core:
+    image: "thingsboard/tb-node:4.4.0-SNAPSHOT"
+    container_name: tb-loadtest-core
+    ports:
+      - "8080:8080"
+      - "1883:1883"
+      - "5683-5688:5683-5688/udp"
+    environment:
+      TB_SERVICE_ID: tb-core-loadtest
+      TB_SERVICE_TYPE: monolith
+      # Database configuration
+      DATABASE_TS_TYPE: sql
+      SPRING_DRIVER_CLASS_NAME: org.postgresql.Driver
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/thingsboard
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      # Cache configuration
+      CACHE_TYPE: valkey
+      VALKEY_HOST: valkey
+      VALKEY_PORT: 6379
+      # Queue configuration (in-memory for simplicity)
+      TB_QUEUE_TYPE: in-memory
+      # Performance tuning
+      JAVA_OPTS: "-Xmx2g -Xms2g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+      # HTTP thread pool
+      HTTP_BIND_PORT: 8080
+      HTTP_MAX_THREADS: 200
+      # Disable unnecessary features for load testing
+      EDGES_ENABLED: "false"
+      TB_SERVICE_RPC_ENABLED: "false"
+      INTEGRATIONS_RPC_ENABLED: "false"
+      # Logging level
+      LOGGER_LEVEL: WARN
+      LOGGER_LEVEL_ROOT: WARN
+    volumes:
+      - tb-loadtest-data:/data
+      - tb-loadtest-logs:/var/log/thingsboard
+    depends_on:
+      postgres:
+        condition: service_healthy
+      valkey:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "curl -f http://localhost:8080/api/noauth/health || exit 1",
+        ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 120s
+    networks:
+      - tb-loadtest-network
+
+volumes:
+  tb-loadtest-postgres-data:
+    name: tb-loadtest-postgres-data
+  tb-loadtest-data:
+    name: tb-loadtest-data
+  tb-loadtest-logs:
+    name: tb-loadtest-logs
+
+networks:
+  tb-loadtest-network:
+    name: tb-loadtest-network
+    driver: bridge

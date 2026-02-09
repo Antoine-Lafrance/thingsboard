@@ -22,11 +22,7 @@ import lombok.Builder;
 import io.swagger.v3.oas.annotations.media.Schema;
 import org.thingsboard.server.common.data.id.DeviceId;
 
-/**
- * Device Health Status - Simple feature to track device health metrics
- * This class represents the health status of a device including connectivity,
- * battery level, and last activity timestamp.
- */
+
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -55,14 +51,9 @@ public class DeviceHealthStatus {
         UNKNOWN
     }
 
-    /**
-     * Calculate the health score based on connectivity status and battery level
-     * @return health score from 0 to 100
-     */
     public int calculateHealthScore() {
         int score = 0;
 
-        // Connectivity contribution (60% of score)
         switch (connectivityStatus) {
             case ONLINE:
                 score += 60;
@@ -75,11 +66,9 @@ public class DeviceHealthStatus {
                 break;
         }
 
-        // Battery level contribution (40% of score)
         if (batteryLevel != null) {
             score += (batteryLevel * 40) / 100;
         } else {
-            // If no battery info, give full battery score
             score += 40;
         }
 
@@ -87,27 +76,16 @@ public class DeviceHealthStatus {
         return score;
     }
 
-    /**
-     * Check if device health is critical (health score below 30)
-     * @return true if health is critical
-     */
+    
     public boolean isCritical() {
         return healthScore < 30;
     }
 
-    /**
-     * Check if device health is good (health score above 70)
-     * @return true if health is good
-     */
+    
     public boolean isHealthy() {
         return healthScore >= 70;
     }
 
-    /**
-     * Check if the device is inactive for more than specified milliseconds
-     * @param thresholdMs inactivity threshold in milliseconds
-     * @return true if device is inactive
-     */
     public boolean isInactive(long thresholdMs) {
         return (System.currentTimeMillis() - lastActivityTime) > thresholdMs;
     }
